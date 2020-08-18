@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  influxDB:
+    image: influxdb:alpine
+    container_name: influxDB
+    restart: always
+    networks:
+      - crypto-observer
+    volumes:
+      - $PWD/.influxdb:/var/lib/influxdb
+    environment:
+      - INFLUXDB_DB=cryptos
+      - INFLUXDB_USER=crypto-observer
+      - INFLUXDB_USER_PASSWORD=crypto-observer
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=admin 
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: collector
+    restart: always
+    depends_on: 
+      - influxDB
+    networks:
+      - crypto-observer
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - crypto-observer
+    volumes:
+      - $PWD/.grafana:/var/lib/grafana
+  chronograf:
+    image: chronograf:alpine
+    container_name: chronograf
+    depends_on: 
+      - influxDB
+    restart: always
+    ports: 
+      - 8888:8888
+    networks: 
+      - crypto-observer
+    environment:
+      - INFLUXDB_URL=http://influxDB:8086
+networks:
+  crypto-observer:

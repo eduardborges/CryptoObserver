@@ -4,8 +4,6 @@ services:
     image: influxdb:alpine
     container_name: influxDB
     restart: always
-    networks:
-      - crypto-observer
     volumes:
       - $PWD/.influxdb:/var/lib/influxdb
     environment:
@@ -22,16 +20,12 @@ services:
     restart: always
     depends_on: 
       - influxDB
-    networks:
-      - crypto-observer
   grafana:
     image: grafana/grafana
     container_name: grafana
     restart: always
     ports:
       - 3000:3000
-    networks:
-      - crypto-observer
     volumes:
       - $PWD/.grafana:/var/lib/grafana
   chronograf:
@@ -42,9 +36,5 @@ services:
     restart: always
     ports: 
       - 8888:8888
-    networks: 
-      - crypto-observer
     environment:
       - INFLUXDB_URL=http://influxDB:8086
-networks:
-  crypto-observer:

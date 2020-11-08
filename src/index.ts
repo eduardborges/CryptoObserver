@@ -1,54 +1,49 @@
-import { InfluxDB, FieldType } from 'influx';
-import { PublicClient } from 'coinbase-pro';
-import * as moment from 'moment';
+import { InfluxDB } from 'influx';
+import * as WebSocket from 'ws';
+
+type TickerData = {
+  type: 'ticker';
+  trade_id: number;
+  sequence: number;
+  time: string;
+  product_id: 'BTC-EUR' | 'BTC-USD' | 'ETH-EUR' | 'ETH-USD';
+  price: string;
+  side: 'buy' | 'sell'; // Buy: Taker side | Sell: ?
+  last_size: string;
+  best_bid: string;
+  best_ask: string;
+}
 
 const influx = new InfluxDB({
   host: 'influxDB',
   port: 8086,
   database: 'cryptos',
-  schema: [
-    {
-      measurement: 'BTCUSD',
-      fields: {
-        price: FieldType.FLOAT,
-      },
-      tags: []
-    },
-    {
-      measurement: 'ETHUSD',
-      fields: {
-        price: FieldType.FLOAT,
-      },
-      tags: []
-    }
-  ]
 });
 
-const coinbaseClient = new PublicClient();
 
-const writePrice = async () => {
-  const btceurPromise = coinbaseClient.getProductTicker('BTC-EUR');
-  const etheurPromise = coinbaseClient.getProductTicker('ETH-EUR');
+const ws = new WebSocket('wss://ws-feed.pro.coinbase.com');
 
-  const result = await Promise.all([btceurPromise, etheurPromise]);
+ws.on('open', function open() {
+  ws.send(JSON.stringify({
+    "type": "subscribe",
+    "product_ids": [
+      "BTC-EUR",
+      "BTC-USD",
+      "ETH-EUR",
+      "ETH-USD",
+    ],
+    "channels": ["ticker"]
+  }));
+});
 
-  const { price: btcPrice, time: btcTime } = result[0];
-  const { price: ethPrice, time: ethTime } = result[1];
-
-  await influx.writePoints([
-    {
-      measurement: 'BTCEUR',
-      fields: { price: parseFloat(btcPrice) },
-      timestamp: moment(btcTime).toDate(),
-    },
-    {
-      measurement: 'ETHEUR',
-      fields: { price: parseFloat(ethPrice) },
-      timestamp: moment(ethTime).toDate(),
-    }
-  ]);
-
-  console.log('New measurement recorded');
-}
-
-setInterval(writePrice, 1000);
+ws.on('message', function incoming(rawData) {
+  const data: TickerData = JSON.parse(rawData.toString());
+  if (data.price) {
+    influx.writeMeasurement(data.product_id, [
+      {
+        fields: { price: parseFloat(data.price) },
+        timestamp: new Date(data.time)
+      }
+    ]);
+  }
+});

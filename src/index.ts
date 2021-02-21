@@ -36,10 +36,10 @@ ws.on('open', function open() {
   }));
 });
 
-ws.on('message', function incoming(rawData) {
+ws.on('message', async (rawData) => {
   const data: TickerData = JSON.parse(rawData.toString());
   if (data.price) {
-    influx.writeMeasurement(data.product_id, [
+    await influx.writeMeasurement(data.product_id, [
       {
         fields: { price: parseFloat(data.price) },
         timestamp: new Date(data.time)
